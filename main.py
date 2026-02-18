@@ -18,12 +18,18 @@ def main():
     client = genai.Client(api_key=api_key)
     messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)])]
 
-    gen_content(client, messages, args.verbose)
+    for n in range(20):
+        if n == 20:
+            raise RuntimeError("maximum number of iterations is reached")
+
+        fin = gen_content(client, messages, args.verbose)
+        if fin:
+            break
+        
     if args.verbose:
         print(f"User prompt: {args.user_prompt}")
 
-
-def gen_content(client, messages,verbose):
+def gen_content(client, messages, verbose):
     response= client.models.generate_content(
         model="gemini-2.5-flash", contents=messages, 
         config=types.GenerateContentConfig(
@@ -39,9 +45,13 @@ def gen_content(client, messages,verbose):
          print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
          print(f"Response tokens: {(response.usage_metadata.total_token_count - response.usage_metadata.prompt_token_count)} ")
 
+    if response.candidates:
+        for rc in response.candidates:
+            messages.append(rc.content)
+
     if not response.function_calls:
         print(f"Response:\n{response.text}")
-        return
+        return True
     res = []
     for function_call in response.function_calls:
         func_res = call_function(function_call,verbose)
@@ -49,9 +59,11 @@ def gen_content(client, messages,verbose):
             raise RuntimeError("Function error occured :/")
         if func_res.parts[0].function_response.response is None:
             raise RuntimeError("Function error: no response? :/")
-        res += func_res.parts[0]
+        res.append(func_res.parts[0])
         if verbose:
             print(f"-> {func_res.parts[0].function_response.response}")
+    messages.append(types.Content(role="user", parts=res))
+    return False
         
 if __name__ == "__main__":
     main()
