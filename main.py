@@ -2,7 +2,7 @@ import os, argparse, config
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-from functions import available_functions
+from functions import available_functions, call_function
 
 def main():
     parser = argparse.ArgumentParser(description="AI Slop")
@@ -42,9 +42,16 @@ def gen_content(client, messages,verbose):
     if not response.function_calls:
         print(f"Response:\n{response.text}")
         return
-    
+    res = []
     for function_call in response.function_calls:
-        print(f"Calling function: {function_call.name}({function_call.args})")
-
+        func_res = call_function(function_call,verbose)
+        if func_res.parts[0].function_response is None:
+            raise RuntimeError("Function error occured :/")
+        if func_res.parts[0].function_response.response is None:
+            raise RuntimeError("Function error: no response? :/")
+        res += func_res.parts[0]
+        if verbose:
+            print(f"-> {func_res.parts[0].function_response.response}")
+        
 if __name__ == "__main__":
     main()

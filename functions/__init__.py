@@ -1,1 +1,1 @@
-from .call_functions import available_functions
+from .call_functions import available_functions, call_function
